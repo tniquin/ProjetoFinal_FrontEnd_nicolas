@@ -1,8 +1,12 @@
 import flet as ft
 import requests
+from datetime import datetime, timezone
+import pytz
 
 BASE_URL = "http://10.135.235.27:5002"
 
+pedido_global_counter = 0
+BR_TZ = pytz.timezone("America/Sao_Paulo")
 
 def main(page: ft.Page):
     page.title = "SmartSell"
@@ -10,6 +14,8 @@ def main(page: ft.Page):
     page.session.set("user", None)
     page.window.height = 800
     page.window.width = 378
+
+
 
     def api_request(method, endpoint, data=None):
         headers = {}
@@ -28,27 +34,9 @@ def main(page: ft.Page):
 
     # ---------------- VIEWS ----------------
     def login_view():
-        email = ft.TextField(
-            label="EMAIL",
-            prefix_icon=ft.Icons.EMAIL,
-            border_color=ft.Colors.AMBER,
-            border_radius=10,
-            focused_border_color=ft.Colors.AMBER,
-            width=300,
-            color = ft.Colors.BLACK
-        )
+        email = ft.TextField(label="Email")
+        senha = ft.TextField(label="Senha", password=True, can_reveal_password=True)
 
-        senha = ft.TextField(
-            label="SENHA",
-            prefix_icon=ft.Icons.LOCK,
-            password=True,
-            can_reveal_password=True,
-            border_color=ft.Colors.AMBER,
-            border_radius=10,
-            focused_border_color=ft.Colors.AMBER,
-            width=300,
-            color = ft.Colors.BLACK
-        )
         def do_login(e):
             status, res = api_request("POST", "/login", {
                 "email": email.value,
@@ -61,678 +49,878 @@ def main(page: ft.Page):
                     page.session.set("user", rme)
                 else:
                     page.session.set("user", {"nome": res.get("nome"), "email": email.value})
-                page.snack_bar = ft.SnackBar(ft.Text("Login realizado!"), open=True)
                 page.update()
                 go_menu()
             else:
-                page.snack_bar = ft.SnackBar(ft.Text(res.get("msg", "Credenciais inválidas")), open=True)
                 page.update()
 
         return ft.View(
             "/login",
-            bgcolor=ft.Colors.AMBER_50,
             controls=[
-                ft.Container(
-                    expand=True,
-                    alignment=ft.alignment.center,
-                    content=ft.Column(
-                        [
-                            ft.Icon(
-                                ft.Icons.ACCOUNT_CIRCLE,
-                                size=120,
-                                color=ft.Colors.RED
-                            ),
-                            email,
-                            senha,
-                            ft.ElevatedButton(
-                                "ENTRAR",
-                                on_click=do_login,
-                                bgcolor=ft.Colors.RED,
-                                color=ft.Colors.WHITE,
-                                style=ft.ButtonStyle(
-                                    shape=ft.RoundedRectangleBorder(radius=20),
-                                    padding=20
-                                ),
-                                width=150
-                            ),
-                            ft.Text(
-                                "NOVO USUÁRIO?\nENTÃO",
-                                size=14,
-                                weight="bold",
-                                text_align="center",
-                                color=ft.Colors.BLACK,
-                                spans=[
-                                    ft.TextSpan(
-                                        " CADASTRE-SE",
-                                        ft.TextStyle(color=ft.Colors.RED),
-                                        on_click=lambda _: go_cadastro()  # <<< aqui troca de rota
-                                    )
-                                ]
-                            ),
-                        ],
-                        alignment="center",
-                        horizontal_alignment="center",
-                        spacing=25
-                    )
+                ft.Column(
+                    [
+                        email,
+                        senha,
+                        ft.ElevatedButton("Entrar", on_click=do_login),
+                        ft.TextButton("Cadastrar-se", on_click=lambda _: go_cadastro()),
+                    ],
+                    alignment="center",
+                    horizontal_alignment="center",
+                    expand=True
                 )
             ]
         )
 
     def cadastro_view():
-        nome = ft.TextField(
-            label="NOME",
-            label_style=ft.TextStyle( weight="bold"),
-            prefix_icon=ft.Icons.PERSON,
-            border_color=ft.Colors.AMBER,
-            border_radius=10,
-            focused_border_color=ft.Colors.AMBER,
-            color=ft.Colors.BLACK,
-            width=300
-        )
+        nome = ft.TextField(label="Nome")
+        email = ft.TextField(label="Email")
+        telefone = ft.TextField(label="Telefone")
+        senha = ft.TextField(label="Senha", password=True, can_reveal_password=True)
 
-        email = ft.TextField(
-            label="EMAIL",
-            label_style=ft.TextStyle( weight="bold"),
-            prefix_icon=ft.Icons.EMAIL,
-            border_color=ft.Colors.AMBER,
-            border_radius=10,
-            focused_border_color=ft.Colors.AMBER,
-            color=ft.Colors.BLACK,
-            width=300
-        )
-
-        telefone = ft.TextField(
-            label="TELEFONE",
-            label_style=ft.TextStyle( weight="bold"),
-            prefix_icon=ft.Icons.PHONE,
-            border_color=ft.Colors.AMBER,
-            border_radius=10,
-            focused_border_color=ft.Colors.AMBER,
-            color=ft.Colors.BLACK,
-            width=300
-        )
-
-        senha = ft.TextField(
-            label="SENHA",
-            label_style=ft.TextStyle( weight="bold"),
-            prefix_icon=ft.Icons.LOCK,
-            password=True,
-            can_reveal_password=True,
-            border_color=ft.Colors.AMBER,
-            border_radius=10,
-            focused_border_color=ft.Colors.AMBER,
-            color=ft.Colors.BLACK,
-            width=300
-        )
         def do_cadastro(e):
-            status, res = api_request("POST", "/cadastro/usuario", {
-                "nome": nome.value,
-                "telefone": telefone.value,
-                "email": email.value,
-                "senha": senha.value
-            })
-            if status == 201:
-                page.snack_bar = ft.SnackBar(ft.Text("Cadastro realizado! Faça login."), open=True)
-                page.update()
-                go_login()
-            else:
-                page.snack_bar = ft.SnackBar(ft.Text(res.get("msg", "Erro no cadastro")), open=True)
+            try:
+                status, res = api_request("POST", "/usuario/cadastro", {
+                    "nome": nome.value,
+                    "telefone": telefone.value,
+                    "email": email.value,
+                    "senha": senha.value
+                })
+
+                print("🔍 Resposta da API:", status, res)  # Log completo
+
+                if status == 201:
+                    go_login()
+                else:
+                    # Mostra mensagem de erro na tela
+                    page.snack_bar = ft.SnackBar(ft.Text(f"Erro no cadastro: {res}"), open=True)
+                    page.update()
+
+            except Exception as err:
+                # Captura erro inesperado
+                print("❌ Erro inesperado no cadastro:", err)
+                page.snack_bar = ft.SnackBar(ft.Text(f"Erro interno: {err}"), open=True)
                 page.update()
 
         return ft.View(
             "/cadastro",
-            bgcolor=ft.Colors.AMBER_50,
             controls=[
-                ft.Container(
-                    expand=True,
-                    alignment=ft.alignment.center,
-                    content=ft.Column(
-                        [
-                            # Ícone topo
-                            ft.Icon(
-                                ft.Icons.ACCOUNT_CIRCLE,
-                                size=120,
-                                color=ft.Colors.RED
-                            ),
-
-                            # Campos
-                            nome,
-                            email,
-                            telefone,
-                            senha,
-
-                            # Texto "já tem uma conta? entre agora"
-                            ft.Text(
-                                spans=[
-                                    ft.TextSpan("JÁ TEM UMA CONTA?",
-                                                ft.TextStyle(color=ft.Colors.BLACK, weight="bold")),
-                                    ft.TextSpan(" "),
-                                    ft.TextSpan(
-                                        "ENTRE AGORA",
-                                        ft.TextStyle(color=ft.Colors.RED, weight="bold"),
-                                        on_click=lambda _: go_login()
-                                    )
-                                ],
-                                text_align="center"
-                            ),
-
-                            # Botão Criar
-                            ft.ElevatedButton(
-                                "CRIAR",
-                                on_click=do_cadastro,
-                                bgcolor=ft.Colors.RED,
-                                color=ft.Colors.WHITE,
-                                style=ft.ButtonStyle(
-                                    shape=ft.RoundedRectangleBorder(radius=20),
-                                    padding=20
-                                ),
-                                width=150
-                            ),
-                        ],
-                        alignment="center",
-                        horizontal_alignment="center",
-                        spacing=20
-                    )
+                ft.Column(
+                    [
+                        nome,
+                        email,
+                        telefone,
+                        senha,
+                        ft.ElevatedButton("Criar Conta", on_click=do_cadastro),
+                        ft.TextButton("Já tem conta? Entrar", on_click=lambda _: go_login())
+                    ],
+                    alignment="center",
+                    horizontal_alignment="center",
+                    expand=True
                 )
             ]
         )
+
     def menu_view():
         user = page.session.get("user") or {}
-        bem = f"Bem-vindo, {user.get('nome','Usuário')}!"
+        nome = user.get("nome", "Usuário")
+
+
         return ft.View(
             "/menu",
             controls=[
-                ft.AppBar(title=ft.Text("Menu Principal")),
-                ft.Column([
-                    ft.Text(bem, size=20, weight="bold"),
-                    ft.ElevatedButton("Cardápio", on_click=lambda _: go_cardapio()),
-                    ft.ElevatedButton("Pedidos", on_click=lambda _: go_pedidos()),
-                    ft.ElevatedButton("Editar Usuário", on_click=lambda _: go_editar_usuario()),
-                    ft.ElevatedButton("Sair", on_click=lambda _: do_logout())
-                ], alignment="center", horizontal_alignment="center")
+                ft.Text(f"Bem-vindo, {nome}!"),
+                ft.Column(
+                    [
+                        ft.TextButton("Cardápio", on_click=lambda _: go_cardapio()),
+                        ft.TextButton("Carrinho", on_click=lambda _: go_carrinho()),
+                        ft.TextButton("Meus Pedidos", on_click=lambda _: go_pedidos()),
+                        ft.TextButton("Editar Usuário", on_click=lambda _: go_editar_usuario()),
+                        ft.TextButton("Sair", on_click=lambda _: do_logout())
+                    ],
+                    alignment="center",
+                    horizontal_alignment="center"
+                )
             ]
         )
 
-    page.session.set("carrinho", [])
-
     def cardapio_view():
-        user = page.session.get("user") or {}
-        nome = user.get("nome", "Usuário").upper()
-
-        st, res = api_request("GET", "/cardapio")
+        st, res = api_request("GET", "/cardapio/listar")
         itens = res.get("cardapio", []) if st == 200 else []
 
-        lista = []
-        for item in itens:
-            def make_handler(pid):
-                return lambda e: go_comprar(pid)
+        selecionados = set()
+        quantidades = {}
+        current_cat = "TODOS"
 
-            lista.append(
-                ft.Container(
-                    content=ft.Row([
-                        ft.Image(src="https://cdn-icons-png.flaticon.com/512/3075/3075977.png", width=60, height=60),
-                        ft.Column([
-                            ft.Text(item["nome"], weight="bold", size=16),
-                            ft.Text(f"R$ {item.get('preco', 0):.2f}", color=ft.Colors.RED),
-                        ]),
-                        ft.Row([
-                            ft.IconButton(ft.Icons.SHOPPING_CART, on_click=lambda e, it=item: add_to_carrinho(it))
-                        ], spacing=5),
-                            ft.ElevatedButton("COMPRAR", bgcolor=ft.Colors.RED, color=ft.Colors.WHITE,
-                                              on_click=make_handler(item["id"])),
+        # normaliza status e categoria
+        def str_to_bool(val):
+            if isinstance(val, bool):
+                return val
+            if isinstance(val, int):
+                return val != 0
+            if isinstance(val, str):
+                return val.lower() in ("true", "1", "sim")
+            return False
 
+        for p in itens:
+            p["status"] = str_to_bool(p.get("status", True))
+            cat = (p.get("categoria") or "").strip()
+            p["categoria"] = cat if cat else "OUTROS"
 
-                    ], alignment="spaceBetween"),
-                    padding=10,
-                    bgcolor=ft.Colors.WHITE,
-                    border_radius=10,
-                    margin=5
+        algum_disponivel = any(p["status"] for p in itens)
+
+        # categorias dinâmicas (inclui todas as categorias presentes) + TODOS
+        categorias_set = sorted(set([p.get("categoria", "").upper() for p in itens if p.get("categoria") is not None]))
+        categorias = ["TODOS"] + [c for c in categorias_set if c != "TODOS"]
+
+        # grid de produtos (2 por linha)
+        grid = ft.Column(
+            scroll="auto",
+            expand=True,
+            alignment="center",
+            horizontal_alignment="center",
+            spacing=15
+        )
+
+        def toggle_selecao(item, control):
+            if not item["status"]:
+                return
+            if item["id"] in selecionados:
+                selecionados.remove(item["id"])
+                try:
+                    control.border = ft.border.all(1, ft.Colors.GREY)
+                except:
+                    pass
+            else:
+                selecionados.add(item["id"])
+                try:
+                    control.border = ft.border.all(3, ft.Colors.BLUE)
+                except:
+                    pass
+            page.update()
+
+        def add_mais(item):
+            if not item["status"]:
+                return
+            quantidades[item["id"]] = quantidades.get(item["id"], 0) + 1
+            page.update()
+
+        def add_carrinho(e):
+            for item in itens:
+                if not item["status"]:
+                    continue
+                if item["id"] in selecionados:
+                    add_to_carrinho(item)
+                qtd = quantidades.get(item["id"], 0)
+                if qtd > 0:
+                    for _ in range(qtd):
+                        add_to_carrinho(item)
+
+            selecionados.clear()
+            quantidades.clear()
+            page.update()
+            go_carrinho()
+
+        # campo de busca (criado antes para ser usado dentro das funções)
+        search_field = ft.TextField(
+            hint_text="Pesquisar...",
+            prefix_icon=ft.Icons.SEARCH,
+            border_color="grey",
+            bgcolor="white",
+            width=240,
+            height=45,
+        )
+
+        # função de exibição
+        def mostrar_categoria(cat):
+            nonlocal current_cat
+            current_cat = cat
+            grid.controls.clear()
+
+            query = (search_field.value or "").strip().lower()
+
+            # se tem busca ativa → mostra só os produtos que combinem com a busca (ignora agrupamento)
+            if query:
+                encontrados = [p for p in itens if p.get("status", True) and query in p.get("nome", "").lower()]
+                if not encontrados:
+                    grid.controls.append(ft.Text("Nenhum produto encontrado.", size=16))
+                else:
+                    linha = []
+                    for p in encontrados:
+                        children = [
+                            ft.Container(bgcolor="#FFB84D", height=70, width=150,
+                                         border_radius=ft.border_radius.only(top_left=10, top_right=10)),
+                            ft.Text(p["nome"], weight="bold"),
+                            ft.Text(f"R$ {p.get('preco', 0):.2f}", color=ft.Colors.GREEN),
+                            ft.IconButton(icon=ft.Icons.ADD_CIRCLE, icon_color="orange",
+                                          on_click=(lambda e, item=p: add_mais(item)))
+                        ]
+                        card = ft.Card(
+                            content=ft.Container(
+                                content=ft.Column(children, alignment="center", horizontal_alignment="center",
+                                                  spacing=5),
+                                padding=10,
+                                border=ft.border.all(1, ft.Colors.GREY),
+                                border_radius=10,
+                                ink=True,
+                                on_click=(lambda e, item=p: toggle_selecao(item, e.control))
+                            ),
+                            width=150,
+                            height=180
+                        )
+                        linha.append(card)
+                        if len(linha) == 2:
+                            grid.controls.append(ft.Row(linha, alignment="center", spacing=15))
+                            linha = []
+                    if linha:
+                        grid.controls.append(ft.Row(linha, alignment="center", spacing=15))
+
+            else:
+                # TODOS: agrupa por categoria com ordem preferencial LANCHE -> DOCE -> BEBIDA -> outras
+                if cat == "TODOS":
+                    def category_sort_key(c):
+                        cu = c.upper()
+                        if "LANC" in cu: return (0, cu)
+                        if "DOCE" in cu: return (1, cu)
+                        if "BEB" in cu: return (2, cu)
+                        return (3, cu)
+
+                    categorias_presentes = sorted(
+                        set([p.get("categoria", "").upper() for p in itens if p.get("status", True)]),
+                        key=category_sort_key)
+
+                    for categoria in categorias_presentes:
+                        produtos_cat = [p for p in itens if
+                                        p.get("status", True) and p.get("categoria", "").upper() == categoria]
+                        if not produtos_cat:
+                            continue
+                        grid.controls.append(ft.Text(categoria, size=18, weight="bold"))
+                        linha = []
+                        for p in produtos_cat:
+                            children = [
+                                ft.Container(bgcolor="#FFB84D", height=70, width=150,
+                                             border_radius=ft.border_radius.only(top_left=10, top_right=10)),
+                                ft.Text(p["nome"], weight="bold"),
+                                ft.Text(f"R$ {p.get('preco', 0):.2f}", color=ft.Colors.GREEN),
+                                ft.IconButton(icon=ft.Icons.ADD_CIRCLE, icon_color="orange",
+                                              on_click=(lambda e, item=p: add_mais(item)))
+                            ]
+                            card = ft.Card(
+                                content=ft.Container(
+                                    content=ft.Column(children, alignment="center", horizontal_alignment="center",
+                                                      spacing=5),
+                                    padding=10,
+                                    border=ft.border.all(1, ft.Colors.GREY),
+                                    border_radius=10,
+                                    ink=True,
+                                    on_click=(lambda e, item=p: toggle_selecao(item, e.control))
+                                ),
+                                width=150,
+                                height=180
+                            )
+                            linha.append(card)
+                            if len(linha) == 2:
+                                grid.controls.append(ft.Row(linha, alignment="center", spacing=15))
+                                linha = []
+                        if linha:
+                            grid.controls.append(ft.Row(linha, alignment="center", spacing=15))
+
+                else:
+                    # categoria específica (2 por linha)
+                    produtos = [p for p in itens if p.get("status", True) and p.get("categoria", "").upper() == cat]
+                    if not produtos:
+                        grid.controls.append(ft.Text("Nenhum produto nesta categoria.", size=16))
+                    else:
+                        linha = []
+                        for p in produtos:
+                            children = [
+                                ft.Container(bgcolor="#FFB84D", height=70, width=150,
+                                             border_radius=ft.border_radius.only(top_left=10, top_right=10)),
+                                ft.Text(p["nome"], weight="bold"),
+                                ft.Text(f"R$ {p.get('preco', 0):.2f}", color=ft.Colors.GREEN),
+                                ft.IconButton(icon=ft.Icons.ADD_CIRCLE, icon_color="orange",
+                                              on_click=(lambda e, item=p: add_mais(item)))
+                            ]
+                            card = ft.Card(
+                                content=ft.Container(
+                                    content=ft.Column(children, alignment="center", horizontal_alignment="center",
+                                                      spacing=5),
+                                    padding=10,
+                                    border=ft.border.all(1, ft.Colors.GREY),
+                                    border_radius=10,
+                                    ink=True,
+                                    on_click=(lambda e, item=p: toggle_selecao(item, e.control))
+                                ),
+                                width=150,
+                                height=180
+                            )
+                            linha.append(card)
+                            if len(linha) == 2:
+                                grid.controls.append(ft.Row(linha, alignment="center", spacing=15))
+                                linha = []
+                        if linha:
+                            grid.controls.append(ft.Row(linha, alignment="center", spacing=15))
+
+            page.update()
+
+        # busca: dispara ao digitar / submeter
+        def on_search_change(e):
+            mostrar_categoria(current_cat)
+
+        search_field.on_change = on_search_change
+        search_field.on_submit = on_search_change
+
+        # topo com busca + ícones
+        topo = ft.Container(
+            content=ft.Row(
+                [
+                    search_field,
+                    ft.IconButton(icon=ft.Icons.ACCOUNT_CIRCLE, icon_size=30),
+                    ft.IconButton(icon=ft.Icons.SETTINGS, icon_size=30),
+                ],
+                alignment="spaceBetween",
+                vertical_alignment="center",
+                spacing=10
+            ),
+            border=ft.border.only(bottom=ft.BorderSide(1, "grey")),
+            padding=10
+        )
+
+        # botões de categoria (dinâmicos)
+        cat_buttons = []
+        for c in categorias:
+            cat_buttons.append(
+                ft.ElevatedButton(
+                    c,
+                    bgcolor="#FFD54F",
+                    color="black",
+                    style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=20), padding=15),
+                    on_click=lambda e, cat=c: mostrar_categoria(cat)
                 )
             )
 
+        # render inicial → TODOS
+        mostrar_categoria("TODOS")
+
         return ft.View(
             "/cardapio",
-            bgcolor=ft.Colors.AMBER_50,
             controls=[
-                ft.Column([
-                    # TOPO vermelho
-                    ft.Container(
-                        bgcolor=ft.Colors.RED,
-                        padding=15,
-                        alignment=ft.alignment.center,
-                        content=ft.Text(f"OLÁ {nome}", size=20, weight="bold", color=ft.Colors.WHITE)
-                    ),
-
-                    # Abas PROMOÇÃO e MENU
-                    ft.Row([
-                        ft.Container(
-                            content=ft.Text("PROMOÇÃO", size=22, weight="bold", color=ft.Colors.WHITE),
-                            bgcolor=ft.Colors.AMBER,
+                topo,
+                ft.Row(cat_buttons, alignment="center", spacing=10),
+                grid,
+                ft.Row(
+                    [
+                        ft.ElevatedButton(
+                            "ADICIONAR",
+                            icon=ft.Icons.SHOPPING_CART,
+                            bgcolor="#FFD54F",
+                            color="black",
+                            style=ft.ButtonStyle(shape=ft.RoundedRectangleBorder(radius=25), padding=20),
+                            on_click=add_carrinho,
                             expand=True,
-                            padding=10,
-                            alignment=ft.alignment.center,
-                            on_click=lambda _: go_promocoes()
+                            disabled=not algum_disponivel
                         ),
-                        ft.Container(
-                            content=ft.Text("MENU", size=22, weight="bold", color=ft.Colors.RED),
-                            bgcolor=ft.Colors.AMBER_50,
-                            expand=True,
-                            padding=10,
-                            alignment=ft.alignment.center,
-                            on_click=lambda _: go_cardapio()
-                        ),
-                    ], spacing=5),
-
-                    # Lista rolável
-                    ft.Column(lista, scroll="auto", expand=True) if lista else ft.Container(
-                        expand=True,
-                        alignment=ft.alignment.center,
-                        content=ft.Text("Nenhum item no cardápio.")
-                    ),
-
-                    # Rodapé
-                    ft.Container(
-                        bgcolor=ft.Colors.AMBER_100,
-                        padding=10,
-                        content=ft.Row(
-    [
-        ft.IconButton(ft.Icons.RESTAURANT_MENU, on_click=lambda _: go_cardapio()),
-        ft.IconButton(ft.Icons.HOME, on_click=lambda _: go_menu()),
-        ft.IconButton(ft.Icons.SHOPPING_CART, on_click=lambda _: go_carrinho()),  # novo ícone
-        ft.IconButton(ft.Icons.PERSON, on_click=lambda _: go_editar_usuario())
-    ],
-    alignment="spaceAround"
-)
-
-                    )
-                ], expand=True, spacing=0)
-            ]
+                    ],
+                    spacing=10,
+                    alignment="center"
+                )
+            ],
+            vertical_alignment="start"
         )
 
-    def add_to_carrinho(item):
+    def add_to_carrinho(item: dict) -> None:
+        """Adiciona um item ao carrinho da sessão, somando a quantidade se já existir."""
         carrinho = page.session.get("carrinho") or []
 
-        # Verifica se já existe no carrinho
+        # procura se já existe no carrinho
         for c in carrinho:
             if c["id"] == item["id"]:
                 c["quantidade"] += 1
                 break
         else:
+            # adiciona novo
             carrinho.append({
                 "id": item["id"],
-                "nome": item["nome"],
-                "preco": item.get("preco", 0),
+                "nome": item.get("nome", "Sem nome"),
+                "preco": float(item.get("preco", 0.0)),
                 "quantidade": 1
             })
 
         page.session.set("carrinho", carrinho)
-        page.snack_bar = ft.SnackBar(ft.Text(f"{item['nome']} adicionado ao carrinho!"), open=True)
         page.update()
 
-    def promocoes_view():
-        user = page.session.get("user") or {}
-        nome = user.get("nome", "Usuário").upper()
-
-        st, res = api_request("GET", "/cardapio")
-        itens = res.get("cardapio", []) if st == 200 else []
-
-        promocoes = [p for p in itens if p.get("status_promocao")]
-
-        lista = []
-        for p in promocoes:
-            def make_handler(pid):
-                return lambda e: go_comprar(pid)
-
-            preco = p.get("preco", 0)
-            preco_final = p.get("preco_final", preco)
-
-            preco_texto = ft.Row([
-                ft.Text(
-                    f"De: R$ {preco:.2f}",
-                    color=ft.Colors.BLACK54,
-                    size=10,  # menor
-                    style=ft.TextStyle(decoration=ft.TextDecoration.LINE_THROUGH)
-                ),
-                ft.Text(
-                    f"  Por: R$ {preco_final:.2f}",
-                    color=ft.Colors.RED,
-                    weight="bold",
-                    size=12  # menor
-                ),
-            ])
-
-            lista.append(
-                ft.Container(
-                    content=ft.Row([
-                        ft.Image(src="https://cdn-icons-png.flaticon.com/512/3075/3075977.png",
-                                 width=40, height=40),  # imagem menor
-                        ft.Column([
-                            ft.Text("🔥 Promoção do Dia 🔥", weight="bold", size=12, color=ft.Colors.RED),
-                            ft.Text(p["nome"], weight="bold", size=14),  # menor
-                            preco_texto
-                        ]),
-                        ft.ElevatedButton("COMPRAR",
-                                          bgcolor=ft.Colors.RED,
-                                          color=ft.Colors.WHITE,
-                                          on_click=make_handler(p["id"]),
-                                          style=ft.ButtonStyle(padding=5))  # botão menor
-                    ], alignment="spaceBetween"),
-                    padding=5,  # padding menor
-                    bgcolor=ft.Colors.WHITE,
-                    border_radius=10,
-                    margin=5
-                )
-            )
-
-        return ft.View(
-            "/promocoes",
-            bgcolor=ft.Colors.AMBER_50,
-            controls=[
-                ft.Column([
-                    ft.Container(
-                        bgcolor=ft.Colors.RED,
-                        padding=15,
-                        alignment=ft.alignment.center,
-                        content=ft.Text(f"OLÁ {nome}", size=20, weight="bold", color=ft.Colors.WHITE)
-                    ),
-                    ft.Row([
-                        ft.Container(
-                            content=ft.Text("PROMOÇÃO", size=22, weight="bold", color=ft.Colors.RED),
-                            bgcolor=ft.Colors.AMBER_50,
-                            expand=True,
-                            padding=10,
-                            alignment=ft.alignment.center
-                        ),
-                        ft.Container(
-                            content=ft.Text("MENU", size=22, weight="bold", color=ft.Colors.WHITE),
-                            bgcolor=ft.Colors.AMBER,
-                            expand=True,
-                            padding=10,
-                            alignment=ft.alignment.center,
-                            on_click=lambda _: go_cardapio()
-                        ),
-                    ], spacing=0),
-                    ft.Column(lista, scroll="auto", expand=True) if lista else ft.Container(
-                        expand=True,
-                        alignment=ft.alignment.center,
-                        content=ft.Text("Nenhuma promoção disponível.")
-                    ),
-                    ft.Container(
-                        bgcolor=ft.Colors.AMBER_100,
-                        padding=10,
-                        content=ft.Row(
-    [
-        ft.IconButton(ft.Icons.RESTAURANT_MENU, on_click=lambda _: go_cardapio()),
-        ft.IconButton(ft.Icons.HOME, on_click=lambda _: go_menu()),
-        ft.IconButton(ft.Icons.SHOPPING_CART, on_click=lambda _: go_carrinho()),  # novo ícone
-        ft.IconButton(ft.Icons.PERSON, on_click=lambda _: go_editar_usuario())
-    ],
-    alignment="spaceAround"
-)
-
-                    )
-                ], expand=True, spacing=0)
-            ]
-        )
-
     def carrinho_view():
+        """Renderiza a view do carrinho com atualização instantânea de + e -."""
         carrinho = page.session.get("carrinho") or []
 
+        def salvar_carrinho():
+            page.session.set("carrinho", carrinho)
+
         def comprar_tudo(e):
-            # faz pedidos para todos os itens do carrinho
-            sucesso = 0
-            falha = 0
             for item in carrinho:
-                st, res = api_request("POST", "/cadastrar/pedido/logado", {
+                api_request("POST", "/cadastrar/pedido/logado", {
                     "produto_id": item["id"],
                     "quantidade": item["quantidade"]
                 })
-                if st in (200, 201):
-                    sucesso += 1
-                else:
-                    falha += 1
-            # limpa carrinho
             page.session.set("carrinho", [])
-            msg = f"{sucesso} pedido(s) realizado(s) com sucesso!"
-            if falha:
-                msg += f" {falha} falharam."
-            page.snack_bar = ft.SnackBar(ft.Text(msg), open=True)
             page.update()
             go_pedidos()
 
-        lista = []
-        for i, item in enumerate(carrinho):
-            lista.append(
-                ft.Card(
-                    ft.Container(
-                        ft.Row([
-                            ft.Text(f"{item['nome']} (x{item['quantidade']}) - R$ {item['preco']:.2f}")
-                        ]),
-                        padding=10
+        def calcular_total() -> float:
+            return sum(item["preco"] * item["quantidade"] for item in carrinho)
+
+        # Label do total para ser atualizado dinamicamente
+        total_label = ft.Text(f"Total: R$ {calcular_total():.2f}", weight="bold", size=18)
+
+        lista_itens = []
+        for i in carrinho:
+            # Criamos um Text separado para quantidade
+            qtd_label = ft.Text(str(i["quantidade"]), size=16, weight="bold")
+            subtotal_label = ft.Text(f"Subtotal: R$ {i['preco'] * i['quantidade']:.2f}", weight="w500")
+
+            def alterar_quantidade(e, item=i, qtd_label=qtd_label, subtotal_label=subtotal_label):
+                item["quantidade"] += e.control.data  # data = +1 ou -1
+                if item["quantidade"] <= 0:
+                    carrinho.remove(item)
+                    salvar_carrinho()
+                    page.go("/carrinho")  # força refresh se remover item
+                    return
+
+                qtd_label.value = str(item["quantidade"])
+                subtotal_label.value = f"Subtotal: R$ {item['preco'] * item['quantidade']:.2f}"
+                total_label.value = f"Total: R$ {calcular_total():.2f}"
+                salvar_carrinho()
+
+                qtd_label.update()
+                subtotal_label.update()
+                total_label.update()
+
+            card = ft.Card(
+                content=ft.Container(
+                    padding=10,
+                    content=ft.Row(
+                        [
+                            ft.Column(
+                                [
+                                    ft.Text(i["nome"], weight="bold", size=16),
+                                    ft.Text(f"Preço unitário: R$ {i['preco']:.2f}"),
+                                    subtotal_label
+                                ],
+                                spacing=2
+                            ),
+                            ft.Row(
+                                [
+                                    ft.IconButton(
+                                        ft.Icons.REMOVE,
+                                        data=-1,
+                                        on_click=alterar_quantidade,
+                                        icon_color="red"
+                                    ),
+                                    qtd_label,
+                                    ft.IconButton(
+                                        ft.Icons.ADD,
+                                        data=+1,
+                                        on_click=alterar_quantidade,
+                                        icon_color="green"
+                                    )
+                                ],
+                                alignment="center"
+                            )
+                        ],
+                        alignment="spaceBetween"
                     )
                 )
             )
+            lista_itens.append(card)
 
         return ft.View(
             "/carrinho",
             controls=[
-                ft.AppBar(title=ft.Text("Carrinho")),
-                ft.Column(lista) if lista else ft.Text("Carrinho vazio."),
-                ft.Row([
-                    ft.ElevatedButton("Comprar Tudo", on_click=comprar_tudo) if carrinho else ft.Text(""),
-                    ft.TextButton("Voltar", on_click=lambda _: go_cardapio())
-                ], alignment="center")
+                ft.Column(lista_itens, spacing=10) if lista_itens else ft.Text("Carrinho vazio."),
+                total_label if carrinho else ft.Text(""),
+                ft.ElevatedButton(
+                    "Comprar Tudo",
+                    on_click=lambda e: go_comprar("carrinho")
+                ) if carrinho else ft.Text(""),
+
+                ft.TextButton("Voltar", on_click=lambda _: go_cardapio())
             ]
         )
 
     def pedidos_view():
-        user = page.session.get("user") or {}
-        nome = user.get("nome", "Usuário").upper()
-
         st, res = api_request("GET", "/pedidos/logado")
         pedidos = res.get("pedidos", []) if st == 200 else []
 
-        lista = []
+        def formatar_data_display(data_str):
+            """Retorna a data formatada bonitinha para exibir no card."""
+            try:
+                dt = datetime.fromisoformat(data_str.replace("Z", "+00:00"))
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                dt_br = dt.astimezone(BR_TZ)
+                return dt_br.strftime("%d/%m/%Y %H:%M:%S")
+            except:
+                return "Data inválida"
+
+        def normalizar_data(data_str):
+            """Retorna a data normalizada (chave exata)."""
+            try:
+                return datetime.fromisoformat(data_str.replace("Z", "+00:00")).isoformat()
+            except:
+                return data_str  # fallback caso erro
+
+        # Agrupar pedidos pelo mesmo datetime completo
+        pedidos_dict = {}
         for p in pedidos:
-            entregue = (p.get("status", "").lower() == "entregue")
+            data_key = normalizar_data(p.get("data", ""))
+            if data_key not in pedidos_dict:
+                pedidos_dict[data_key] = {
+                    "itens": [],
+                    "status": p.get("status", "Pendente"),
+                    "data": p.get("data", ""),
+                    "valor_total": 0.0,
+                }
+            pedidos_dict[data_key]["itens"].append(p)
+            pedidos_dict[data_key]["valor_total"] += p.get("valor_total", 0.0)
 
-            lista.append(
-                ft.Container(
-                    content=ft.Row(
+        cards = []
+        for data_key, pedido in pedidos_dict.items():
+            status = pedido["status"]
+            valor_total = pedido["valor_total"]
+            data_display = formatar_data_display(pedido["data"])
+
+            # Definir ícone do status
+            if "entregue" in status.lower():
+                status_icon = ft.Icon(name=ft.Icons.CHECK_CIRCLE, color=ft.Colors.GREEN, size=26)
+            elif "cancelado" in status.lower():
+                status_icon = ft.Icon(name=ft.Icons.CANCEL, color=ft.Colors.RED, size=26)
+            else:
+                status_icon = ft.Icon(name=ft.Icons.HOURGLASS_BOTTOM, color=ft.Colors.AMBER, size=26)
+
+            # Lista de itens do pedido (mesmo horário exato)
+            itens_col = []
+            for item in pedido["itens"]:
+                itens_col.append(
+                    ft.Row(
                         [
-                            # Ícone / Imagem produto
-                            ft.Container(
-                                content=ft.Image(
-                                    src="https://cdn-icons-png.flaticon.com/512/3075/3075977.png",
-                                    width=40,
-                                    height=40,
-                                    fit=ft.ImageFit.COVER
-                                ),
-                                width=50,
-                                height=50,
-                                bgcolor=ft.Colors.BROWN_200,
-                                border_radius=25,
-                                alignment=ft.alignment.center
+                            ft.CircleAvatar(
+                                foreground_image_src=item.get("imagem", "https://via.placeholder.com/50"),
+                                radius=20,
                             ),
-
-                            # Informações do pedido
-                            ft.Column(
-                                [
-                                    ft.Text(
-                                        f"{p.get('produto', 'Produto')} {p.get('valor_total', 0):.2f}",
-                                        weight="bold",
-                                        size=14,
-                                        color=ft.Colors.BLACK
-                                    ),
-                                    ft.Text(
-                                        f"{p.get('status', '').upper()}: {p.get('data', '')}",
-                                        size=12,
-                                        color=ft.Colors.BLUE if entregue else ft.Colors.BLACK54
-                                    )
-                                ],
-                                alignment="center",
-                                expand=True
-                            ),
-
-                            # Check verde se entregue
-                            ft.Icon(
-                                ft.Icons.CHECK_CIRCLE,
-                                color=ft.Colors.GREEN,
-                                size=22
-                            ) if entregue else ft.Icon(
-                                ft.Icons.HOURGLASS_BOTTOM,
-                                color=ft.Colors.AMBER,
-                                size=22
-                            )
+                            ft.Text(item.get("produto", "Produto"), size=13, weight="w500"),
                         ],
-                        alignment="spaceBetween",
-                    ),
-                    bgcolor=ft.Colors.WHITE,
-                    border_radius=10,
-                    padding=10,
-                    margin=5
+                        spacing=8,
+                    )
                 )
+
+            # Card agrupado
+            card = ft.Container(
+                bgcolor=ft.Colors.WHITE,
+                border_radius=15,
+                padding=15,
+                shadow=ft.BoxShadow(blur_radius=8, spread_radius=2, color=ft.Colors.BLACK12),
+                content=ft.Column(
+                    [
+                        ft.Row(
+                            [
+                                ft.Text(data_display, size=15, weight="bold"),
+                                status_icon,
+                            ],
+                            alignment="spaceBetween",
+                        ),
+                        ft.Text(f"Status: {status.upper()}", size=12, italic=True, color=ft.Colors.GREY),
+                        ft.Divider(),
+                        ft.Column(itens_col, spacing=5),
+                        ft.Divider(),
+                        ft.Text(f"TOTAL: R$ {valor_total:.2f}", size=14, weight="bold", color=ft.Colors.BLACK),
+                    ],
+                    spacing=8,
+                ),
             )
+            cards.append(card)
 
         return ft.View(
             "/pedidos",
-            bgcolor=ft.Colors.AMBER_50,
             controls=[
                 ft.Column(
-                    [
-                        # TOPO vermelho
-                        ft.Container(
-                            bgcolor=ft.Colors.RED,
-                            padding=15,
-                            alignment=ft.alignment.center,
-                            content=ft.Text(f"OLÁ {nome}", size=20, weight="bold", color=ft.Colors.WHITE)
-                        ),
-
-                        # Faixa "PEDIDOS"
-                        ft.Container(
-                            bgcolor=ft.Colors.AMBER_50,
-                            padding=10,
-                            alignment=ft.alignment.center,
-                            content=ft.Text("MEUS PEDIDOS", size=18, weight="bold", color=ft.Colors.RED)
-                        ),
-
-                        # Lista expansiva
-                        ft.Column(lista, scroll="auto", expand=True) if lista else ft.Container(
-                            expand=True,
-                            alignment=ft.alignment.center,
-                            content=ft.Text("Nenhum pedido realizado.")
-                        ),
-
-                        # BARRA INFERIOR fixa
-                        ft.Container(
-                            bgcolor=ft.Colors.AMBER_100,
-                            padding=10,
-                            content=ft.Row(
-    [
-        ft.IconButton(ft.Icons.RESTAURANT_MENU, on_click=lambda _: go_cardapio()),
-        ft.IconButton(ft.Icons.HOME, on_click=lambda _: go_menu()),
-        ft.IconButton(ft.Icons.SHOPPING_CART, on_click=lambda _: go_carrinho()),  # novo ícone
-        ft.IconButton(ft.Icons.PERSON, on_click=lambda _: go_editar_usuario())
-    ],
-    alignment="spaceAround"
-)
-
-                        )
-                    ],
+                    controls=cards if cards else [ft.Text("Nenhum pedido realizado.")],
+                    spacing=15,
+                    scroll="auto",
                     expand=True,
-                    spacing=0
-                )
-            ]
+                ),
+                ft.Container(
+                    alignment=ft.alignment.center,
+                    padding=10,
+                    content=ft.IconButton(
+                        icon=ft.Icons.ARROW_BACK,
+                        icon_color=ft.Colors.BLACK,
+                        bgcolor=ft.Colors.AMBER,
+                        icon_size=28,
+                        on_click=lambda _: go_menu(),
+                    ),
+                ),
+            ],
         )
 
     def editar_usuario_view():
         user = page.session.get("user") or {}
-        nome = ft.TextField(label="Nome", value=user.get("nome",""))
-        telefone = ft.TextField(label="Telefone", value=user.get("telefone",""))
-        email = ft.TextField(label="Email", value=user.get("email",""))
-        senha = ft.TextField(label="Senha (deixe vazio se não trocar)", password=True, can_reveal_password=True)
+        nome = ft.TextField(label="Nome", value=user.get("nome", ""))
+        telefone = ft.TextField(label="Telefone", value=user.get("telefone", ""))
+        email = ft.TextField(label="Email", value=user.get("email", ""))
+        senha = ft.TextField(label="Senha", password=True, can_reveal_password=True)
 
         def salvar(e):
-            payload = {
-                "nome": nome.value,
-                "telefone": telefone.value,
-                "email": email.value
-            }
-            if senha.value and senha.value.strip():
+            payload = {"nome": nome.value, "telefone": telefone.value, "email": email.value}
+            if senha.value.strip():
                 payload["senha"] = senha.value.strip()
-
             st, res = api_request("PUT", "/editar/usuario/logado", payload)
             if st == 200:
-                # atualiza sessão com o objeto retornado (res["usuario"])
                 page.session.set("user", res.get("usuario", payload))
-                page.snack_bar = ft.SnackBar(ft.Text("Dados atualizados com sucesso!"), open=True)
-            else:
-                page.snack_bar = ft.SnackBar(ft.Text(res.get("msg", "Erro ao atualizar")), open=True)
             page.update()
 
         return ft.View(
             "/editar_usuario",
             controls=[
-                ft.AppBar(title=ft.Text("Editar Usuário")),
-                ft.Column([nome, telefone, email, senha, ft.ElevatedButton("Salvar", on_click=salvar),
-                           ft.TextButton("Voltar", on_click=lambda _: go_menu())], alignment="center")
-            ],
-
-
+                nome, telefone, email, senha,
+                ft.ElevatedButton("Salvar", on_click=salvar),
+                ft.TextButton("Voltar", on_click=lambda _: go_menu())
+            ]
         )
-
-    ft.Row(
-        [
-            ft.IconButton(ft.Icons.RESTAURANT_MENU, on_click=lambda _: go_cardapio()),
-            ft.IconButton(ft.Icons.HOME, on_click=lambda _: go_menu()),
-            ft.IconButton(ft.Icons.SHOPPING_CART, on_click=lambda _: go_carrinho()),  # novo ícone
-            ft.IconButton(ft.Icons.PERSON, on_click=lambda _: go_editar_usuario())
-        ],
-        alignment="spaceAround"
-    )
 
     def comprar_view(item_id):
-        quantidade = ft.TextField(label="Quantidade", value="1")
+        """Tela de compra (único produto ou carrinho inteiro)."""
+        user_carrinho = page.session.get("carrinho") or []
 
-        def confirmar(e):
-            try:
-                qtd = int(quantidade.value)
-                if qtd <= 0:
-                    qtd = 1
-            except:
-                qtd = 1
+        # Caso seja um item único, simulamos um "mini carrinho" com ele
+        if isinstance(item_id, int):
+            st, res = api_request("GET", f"/cardapio")
+            produto = next((p for p in res.get("cardapio", []) if p["id"] == item_id), None)
+            if not produto:
+                return ft.View("/comprar", [ft.Text("Produto não encontrado.")])
 
-            payload = {
-                "produto_id": item_id,
-                "quantidade": qtd,
-                "metodo_pagamento": "pix"  # ou "cartao", conforme API
-            }
+            carrinho_local = [{
+                "id": produto["id"],
+                "nome": produto.get("nome", "Sem nome"),
+                "preco": float(produto.get("preco", 0.0)),
+                "quantidade": 1
+            }]
+        else:
+            # se for "carrinho"
+            carrinho_local = [dict(i) for i in user_carrinho]
 
-            st, res = api_request("POST", "/cadastrar/pedido/logado", payload)
-            if st in (200, 201):
-                page.snack_bar = ft.SnackBar(ft.Text("Pedido realizado com sucesso!"), open=True)
-                page.update()
-                go_pedidos()
+        # função para salvar no session
+        def salvar_carrinho():
+            page.session.set("carrinho", carrinho_local)
+            page.update()
+
+        # calcular total
+        def calcular_total():
+            return sum(i["preco"] * i["quantidade"] for i in carrinho_local)
+
+        # Label do total
+        total_label = ft.Text(f"Total: R$ {calcular_total():.2f}", size=18, weight="bold")
+
+        # lista dinâmica de cards
+        lista_itens = ft.Column(spacing=10)
+
+        def render_lista():
+            lista_itens.controls.clear()
+            for i in carrinho_local:
+                qtd_label = ft.Text(str(i["quantidade"]), size=16, weight="bold")
+                subtotal_label = ft.Text(f"Subtotal: R$ {i['preco'] * i['quantidade']:.2f}")
+
+                def alterar_quantidade(e, item=i, qtd_label=qtd_label, subtotal_label=subtotal_label):
+                    item["quantidade"] += e.control.data  # data = +1 ou -1
+                    if item["quantidade"] <= 0:
+                        carrinho_local.remove(item)
+                    qtd_label.value = str(item["quantidade"])
+                    subtotal_label.value = f"Subtotal: R$ {item['preco'] * item['quantidade']:.2f}"
+                    total_label.value = f"Total: R$ {calcular_total():.2f}"
+                    salvar_carrinho()
+                    render_lista()
+                    lista_itens.update()
+                    total_label.update()
+
+                card = ft.Card(
+                    content=ft.Container(
+                        padding=10,
+                        content=ft.Row(
+                            [
+                                ft.Column(
+                                    [
+                                        ft.Text(i["nome"], weight="bold", size=16),
+                                        ft.Text(f"Preço unitário: R$ {i['preco']:.2f}"),
+                                        subtotal_label
+                                    ],
+                                    spacing=2
+                                ),
+                                ft.Row(
+                                    [
+                                        ft.IconButton(ft.Icons.REMOVE, data=-1, on_click=alterar_quantidade,
+                                                      icon_color="red"),
+                                        qtd_label,
+                                        ft.IconButton(ft.Icons.ADD, data=+1, on_click=alterar_quantidade,
+                                                      icon_color="green")
+                                    ],
+                                    alignment="center"
+                                )
+                            ],
+                            alignment="spaceBetween"
+                        )
+                    )
+                )
+                lista_itens.controls.append(card)
+
+        render_lista()
+
+        # ================================
+        # PAGAMENTO
+        # ================================
+        pagamento_escolhido = {"metodo": None, "tipo_cartao": None}
+
+        opcoes_pagamento_row = ft.Row(spacing=10, alignment="center")
+        cartao_tipos_container = ft.Row(spacing=10, alignment="center", visible=False)
+
+        def card_opcao(texto, cor, selecionado, on_click, icon_name):
+            return ft.Container(
+                bgcolor=cor if selecionado else "#f1f1f1",
+                border_radius=10,
+                padding=15,
+                alignment=ft.alignment.center,
+                expand=1,  # ✅ ocupa espaço proporcional no Row
+                on_click=on_click,
+                content=ft.Row(
+                    [
+                        ft.Icon(icon_name, color="white" if selecionado else "black"),
+                        ft.Text(texto, size=16, weight="bold", color="white" if selecionado else "black"),
+                    ],
+                    alignment="center",
+                    spacing=8
+                ),
+            )
+
+        def render_pagamento():
+            opcoes_pagamento_row.controls.clear()
+
+            if pagamento_escolhido["metodo"] is None:
+                opcoes_pagamento_row.controls.append(
+                    card_opcao("Cartão", "purple", False, lambda e: escolher_pagamento("cartao"), ft.Icons.CREDIT_CARD)
+                )
+                opcoes_pagamento_row.controls.append(
+                    card_opcao("Pix", "green", False, lambda e: escolher_pagamento("pix"), ft.Icons.PAID)
+                )
+
+            elif pagamento_escolhido["metodo"] == "cartao":
+                opcoes_pagamento_row.controls.append(
+                    card_opcao("Cartão", "purple", True, lambda e: escolher_pagamento(None), ft.Icons.CREDIT_CARD)
+                )
+                cartao_tipos_container.visible = True
+
+            elif pagamento_escolhido["metodo"] == "pix":
+                opcoes_pagamento_row.controls.append(
+                    card_opcao("Pix", "green", True, lambda e: escolher_pagamento(None), ft.Icons.PAID)
+                )
+                cartao_tipos_container.visible = False
+
+            # só atualiza se já estiver na página
+            if opcoes_pagamento_row.page:
+                opcoes_pagamento_row.update()
+            if cartao_tipos_container.page:
+                cartao_tipos_container.update()
+
+        def escolher_pagamento(metodo):
+            if pagamento_escolhido["metodo"] == metodo:
+                pagamento_escolhido["metodo"] = None
+                pagamento_escolhido["tipo_cartao"] = None
             else:
-                page.snack_bar = ft.SnackBar(ft.Text(res.get("msg", "Erro ao efetuar pedido")), open=True)
-                page.update()
+                pagamento_escolhido["metodo"] = metodo
+                pagamento_escolhido["tipo_cartao"] = None
 
-        return ft.View(
+            render_pagamento()
+            render_cartao_tipos()
+
+        def escolher_tipo_cartao(tipo):
+            pagamento_escolhido["tipo_cartao"] = tipo
+            render_cartao_tipos()
+
+        def render_cartao_tipos():
+            cartao_tipos_container.controls.clear()
+            if pagamento_escolhido["metodo"] == "cartao":
+                cartao_tipos_container.controls.append(
+                    card_opcao("Débito", "purple", pagamento_escolhido["tipo_cartao"] == "debito",
+                               lambda e: escolher_tipo_cartao("debito"), ft.Icons.ATM)
+                )
+                cartao_tipos_container.controls.append(
+                    card_opcao("Crédito", "purple", pagamento_escolhido["tipo_cartao"] == "credito",
+                               lambda e: escolher_tipo_cartao("credito"), ft.Icons.CREDIT_CARD)
+                )
+            if cartao_tipos_container.page:
+                cartao_tipos_container.update()
+
+            if cartao_tipos_container.page:
+                cartao_tipos_container.update()
+
+        # ================================
+        # CONFIRMAR COMPRA
+        # ================================
+        def confirmar(e):
+            if not pagamento_escolhido["metodo"]:
+                page.snack_bar = ft.SnackBar(ft.Text("Selecione um método de pagamento!"), bgcolor="red")
+                page.snack_bar.open = True
+                page.update()
+                return
+
+            if pagamento_escolhido["metodo"] == "cartao" and not pagamento_escolhido["tipo_cartao"]:
+                page.snack_bar = ft.SnackBar(ft.Text("Selecione débito ou crédito!"), bgcolor="red")
+                page.snack_bar.open = True
+                page.update()
+                return
+
+            metodo_final = (
+                pagamento_escolhido["metodo"]
+                if pagamento_escolhido["metodo"] != "cartao"
+                else pagamento_escolhido["tipo_cartao"]
+            )
+
+            for item in carrinho_local:
+                payload = {
+                    "produto_id": item["id"],
+                    "quantidade": item["quantidade"],
+                    "metodo_pagamento": metodo_final
+                }
+                api_request("POST", "/cadastrar/pedido/logado", payload)
+
+            page.session.set("carrinho", [])
+            go_pedidos()
+
+        # ================================
+        # RETORNO DA TELA
+        # ================================
+        view = ft.View(
             f"/comprar/{item_id}",
             controls=[
-                ft.AppBar(title=ft.Text("Comprar Produto")),
-                ft.Column([ft.Text(f"Confirmar compra do produto ID {item_id}"), quantidade,
-                           ft.ElevatedButton("Confirmar Compra", on_click=confirmar),
-                           ft.TextButton("Voltar", on_click=lambda _: go_cardapio())], alignment="center")
-            ]
-
+                ft.Text("Resumo da Compra", size=20, weight="bold"),
+                lista_itens,
+                total_label,
+                ft.Divider(),
+                ft.Text("Escolha o método de pagamento:", size=16, weight="w500"),
+                opcoes_pagamento_row,
+                cartao_tipos_container,
+                ft.Divider(),
+                ft.ElevatedButton("Confirmar Compra", on_click=confirmar),
+                ft.TextButton("Voltar", on_click=lambda _: go_carrinho())
+            ],
+            scroll="auto"
         )
 
-    # ---------- helpers de navegação ----------
+        # agora sim renderiza depois que o view foi criado
+        render_pagamento()
+        render_cartao_tipos()
+
+        return view
+
     def do_logout():
         page.session.set("token", None)
         page.session.set("user", None)
-        page.snack_bar = ft.SnackBar(ft.Text("Desconectado"), open=True)
         page.update()
         go_login()
 
@@ -740,36 +928,35 @@ def main(page: ft.Page):
     def go_cadastro(): page.go("/cadastro")
     def go_menu(): page.go("/menu")
     def go_cardapio(): page.go("/cardapio")
+    def go_carrinho(): page.go("/carrinho")
     def go_pedidos(): page.go("/pedidos")
     def go_editar_usuario(): page.go("/editar_usuario")
     def go_comprar(pid): page.go(f"/comprar/{pid}")
-    def go_carrinho(): page.go("/carrinho")
-    def go_promocoes(): page.go("/promocoes")
 
+    def route_change(route):
+        # por padrão, esconde o FAB
+        page.floating_action_button = None
 
+        if page.route == "/login":
+            page.views.clear(); page.views.append(login_view())
+        elif page.route == "/cadastro":
+            page.views.clear(); page.views.append(cadastro_view())
+        elif page.route == "/menu":
+            page.views.clear(); page.views.append(menu_view())
+        elif page.route == "/cardapio":
+            page.views.clear(); page.views.append(cardapio_view())
+        elif page.route == "/carrinho":
+            page.views.clear(); page.views.append(carrinho_view())
+        elif page.route == "/pedidos":
+            page.views.clear(); page.views.append(pedidos_view())
+        elif page.route == "/editar_usuario":
+            page.views.clear(); page.views.append(editar_usuario_view())
+        elif page.route.startswith("/comprar/"):
+            pid = page.route.split("/")[-1]
+            item_id = int(pid) if pid.isdigit() else pid  # aceita "carrinho" também
+            page.views.clear()
+            page.views.append(comprar_view(item_id))
 
-    def route_change(e):
-        route = page.route
-        page.views.clear()
-        if route == "/login":
-            page.views.append(login_view())
-        elif route == "/cadastro":
-            page.views.append(cadastro_view())
-        elif route == "/menu":
-            page.views.append(menu_view())
-        elif route == "/cardapio":
-            page.views.append(cardapio_view())
-        elif route == "/pedidos":
-            page.views.append(pedidos_view())
-        elif route == "/editar_usuario":
-            page.views.append(editar_usuario_view())
-        elif route == "/promocoes":
-            page.views.append(promocoes_view())
-        elif route == "/carrinho":
-            page.views.append(carrinho_view())
-        elif route.startswith("/comprar/"):
-            pid = int(route.split("/")[-1])
-            page.views.append(comprar_view(pid))
         page.update()
 
     page.on_route_change = route_change
