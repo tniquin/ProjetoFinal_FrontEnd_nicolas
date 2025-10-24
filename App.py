@@ -3,9 +3,7 @@ import requests
 from datetime import datetime, timezone
 import pytz
 import asyncio
-
 BASE_URL = "http://192.168.137.35:5002"
-
 pedido_global_counter = 0
 BR_TZ = pytz.timezone("America/Sao_Paulo")
 
@@ -1233,6 +1231,8 @@ def main(page: ft.Page):
             vertical_alignment="center",
             horizontal_alignment="center",
         )
+
+
     def comprar_view(item_id):
         user_carrinho = page.session.get("carrinho") or []
         if isinstance(item_id, int):
