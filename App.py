@@ -14,7 +14,7 @@ def main(page: ft.Page):
     page.session.set("token", None)
     page.session.set("user", None)
     page.theme_mode = "light"
-    page.window.height = 900
+    page.window.height = 800
     page.window.width = 440
 
 
